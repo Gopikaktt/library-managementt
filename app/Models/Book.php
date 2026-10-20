@@ -15,4 +15,11 @@ class Book extends Model
         'available_quantity',
         'price',
     ];
+
+    public function borrowings()
+    {
+        return $this->hasMany(Borrowing::class);
+    }
+    
+
 }

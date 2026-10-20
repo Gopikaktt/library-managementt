@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BookController;
+use App\Http\Controllers\BorrowingController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -50,6 +51,20 @@ Route::middleware('auth')->group(function () {
 
     Route::delete('/books/{book}', [BookController::class, 'destroy'])
         ->middleware('permission:delete books');
+
+        // Borrowings & Issues
+    Route::get('/borrowings', [BorrowingController::class, 'index'])
+        ->middleware('permission:view borrowing history');
+
+    Route::get('/borrowings/create', [BorrowingController::class, 'create'])
+        ->middleware('permission:issue books');
+
+    Route::post('/borrowings', [BorrowingController::class, 'store'])
+        ->middleware('permission:issue books');
+
+    Route::post('/borrowings/{borrowing}/return', [BorrowingController::class, 'returnBook'])
+        ->middleware('permission:return books');
+
 });
 
 require __DIR__.'/auth.php';

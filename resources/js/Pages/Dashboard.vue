@@ -34,5 +34,15 @@ const logout = () => {
                 </Link>
             </div>
         </div>
+
+        <div class="card mt-3">
+        <div class="card-body">
+            <h5 class="card-title">Borrowings</h5>
+            <p class="card-text">Issue books to members and track returns.</p>
+            <Link href="/borrowings" class="btn btn-success">
+                Manage Borrowings
+            </Link>
+        </div>
+    </div>
     </div>
 </template>
