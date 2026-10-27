@@ -12,17 +12,63 @@ use Inertia\Inertia;
 class BorrowingController extends Controller
 {
     /**
-     * Display a listing of all borrowings.
+     * Display a listing of borrowings.
      */
     public function index()
     {
-        $borrowings = Borrowing::with(['user:id,name,email', 'book:id,title,isbn'])
-            ->latest()
-            ->get();
+        $user = auth()->user();
+        $isStaff = $user->can('issue books');
+
+        $query = Borrowing::with(['user:id,name,email', 'book:id,title,isbn'])
+            ->latest();
+
+        // If member (non-staff), only show their own orders / borrowings
+        if (!$isStaff) {
+            $query->where('user_id', $user->id);
+        }
+
+        $borrowings = $query->get();
 
         return Inertia::render('Borrowings/Index', [
             'borrowings' => $borrowings,
+            'isStaff' => $isStaff,
         ]);
+    }
+
+    /**
+     * Member orders/borrows a book directly.
+     */
+    public function order(Book $book)
+    {
+        if ($book->available_quantity < 1) {
+            return back()->with('error', 'Sorry, this book is currently out of stock.');
+        }
+
+        $userId = auth()->id();
+
+        // Prevent duplicate active borrowing of the same book
+        $alreadyBorrowed = Borrowing::where('user_id', $userId)
+            ->where('book_id', $book->id)
+            ->where('status', 'borrowed')
+            ->exists();
+
+        if ($alreadyBorrowed) {
+            return back()->with('error', "You already have an active order for '{$book->title}'.");
+        }
+
+        // Decrement available quantity
+        $book->decrement('available_quantity');
+
+        // Create borrowing record with 14-day borrowing duration
+        Borrowing::create([
+            'user_id' => $userId,
+            'book_id' => $book->id,
+            'borrowed_at' => Carbon::today()->toDateString(),
+            'due_date' => Carbon::today()->addDays(14)->toDateString(),
+            'status' => 'borrowed',
+        ]);
+
+        return redirect('/borrowings')->with('success', "Order placed successfully! You borrowed '{$book->title}'. Return deadline is " . Carbon::today()->addDays(14)->format('M d, Y') . '.');
     }
 
     /**
@@ -78,6 +124,31 @@ class BorrowingController extends Controller
     }
 
     /**
+     * Display the specified borrowing record.
+     */
+    public function show(Borrowing $borrowing)
+    {
+        $user = auth()->user();
+        $isStaff = $user->can('issue books');
+
+        // If member (non-staff), only allow viewing their own borrowing
+        if (!$isStaff && $borrowing->user_id !== $user->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $borrowing->load([
+            'user:id,name,email',
+            'book:id,title,author,isbn,price,quantity,available_quantity,category_id',
+            'book.category:id,name',
+        ]);
+
+        return Inertia::render('Borrowings/Show', [
+            'borrowing' => $borrowing,
+            'isStaff' => $isStaff,
+        ]);
+    }
+
+    /**
      * Mark a book as returned.
      */
     public function returnBook(Borrowing $borrowing)
@@ -105,6 +176,6 @@ class BorrowingController extends Controller
             'fine' => $fine,
         ]);
 
-        return redirect('/borrowings')->with('success', 'Book returned successfully.');
+        return back()->with('success', 'Book returned successfully.');
     }
 }

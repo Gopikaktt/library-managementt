@@ -15,11 +15,27 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // 1. Seed Roles and Permissions
+        $this->call(RolePermissionSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // 2. Default Admin User
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@library.com'],
+            [
+                'name' => 'System Admin',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $admin->assignRole('Admin');
+
+        // 3. Default Librarian User
+        $librarian = User::firstOrCreate(
+            ['email' => 'librarian@library.com'],
+            [
+                'name' => 'Head Librarian',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $librarian->assignRole('Librarian');
     }
 }

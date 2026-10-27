@@ -1,5 +1,6 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import Navbar from '@/Components/Navbar.vue';
 
 defineProps({
     books: {
@@ -35,7 +36,9 @@ const submit = () => {
 <template>
     <Head title="Issue Book" />
 
-    <div class="container py-5">
+    <Navbar />
+
+    <div class="container py-4">
         <div class="row justify-content-center">
             <div class="col-md-7">
                 <div class="card shadow-sm">

@@ -5,6 +5,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\BorrowingController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\UserController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -43,6 +45,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/books', [BookController::class, 'store'])
         ->middleware('permission:create books');
 
+    Route::get('/books/{book}', [BookController::class, 'show'])
+        ->middleware('permission:view books');
+
     Route::get('/books/{book}/edit', [BookController::class, 'edit'])
         ->middleware('permission:edit books');
 
@@ -52,7 +57,27 @@ Route::middleware('auth')->group(function () {
     Route::delete('/books/{book}', [BookController::class, 'destroy'])
         ->middleware('permission:delete books');
 
-        // Borrowings & Issues
+    // Member book ordering
+    Route::post('/books/{book}/order', [BorrowingController::class, 'order'])
+        ->middleware('permission:view books');
+
+    // Categories
+    Route::get('/categories', [CategoryController::class, 'index'])
+        ->middleware('permission:view books');
+
+    Route::post('/categories', [CategoryController::class, 'store'])
+        ->middleware('permission:create books');
+
+    Route::get('/categories/{category}', [CategoryController::class, 'show'])
+        ->middleware('permission:view books');
+
+    Route::put('/categories/{category}', [CategoryController::class, 'update'])
+        ->middleware('permission:edit books');
+
+    Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])
+        ->middleware('permission:delete books');
+
+    // Borrowings & Issues
     Route::get('/borrowings', [BorrowingController::class, 'index'])
         ->middleware('permission:view borrowing history');
 
@@ -62,8 +87,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/borrowings', [BorrowingController::class, 'store'])
         ->middleware('permission:issue books');
 
+    Route::get('/borrowings/{borrowing}', [BorrowingController::class, 'show'])
+        ->middleware('permission:view borrowing history');
+
     Route::post('/borrowings/{borrowing}/return', [BorrowingController::class, 'returnBook'])
         ->middleware('permission:return books');
+
+    // User & Permission Management (Admin)
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::put('/users/{user}', [UserController::class, 'update']);
+    Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
 });
 
