@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import Navbar from '@/Components/Navbar.vue';
 
 const props = defineProps({
@@ -193,25 +193,35 @@ const createForm = useForm({
     name: '',
     email: '',
     password: '',
-    role: 'Member',
-    permissions: [...roleDefaultPermissions.Member],
+    role: '',
+    permissions: [],
 });
 
 const openCreateModal = () => {
     createForm.reset();
     createForm.clearErrors();
-    createForm.role = 'Member';
-    createForm.permissions = [...roleDefaultPermissions.Member];
+    createForm.name = '';
+    createForm.email = '';
+    createForm.password = '';
+    createForm.role = '';
+    createForm.permissions = [];
     showCreateModal.value = true;
+    nextTick(() => {
+        createForm.email = '';
+        createForm.password = '';
+    });
 };
 
 const closeCreateModal = () => {
     showCreateModal.value = false;
     createForm.reset();
     createForm.clearErrors();
+    createForm.role = '';
+    createForm.permissions = [];
 };
 
 const selectCreateRole = (roleName) => {
+    createForm.clearErrors('role');
     createForm.role = roleName;
     if (roleDefaultPermissions[roleName]) {
         createForm.permissions = [...roleDefaultPermissions[roleName]];
@@ -236,6 +246,10 @@ const clearAllCreatePermissions = () => {
 };
 
 const submitCreate = () => {
+    if (!createForm.role) {
+        createForm.setError('role', 'Please select a primary role.');
+        return;
+    }
     createForm.post('/users', {
         preserveScroll: true,
         onSuccess: () => {
@@ -243,6 +257,25 @@ const submitCreate = () => {
         },
     });
 };
+
+// Lock background scrolling when a modal is open
+const isAnyModalOpen = computed(() => showCreateModal.value || showEditModal.value);
+
+watch(isAnyModalOpen, (isOpen) => {
+    if (typeof document !== 'undefined') {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+    }
+});
+
+onBeforeUnmount(() => {
+    if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+    }
+});
 
 // -------------------------------------------------------------
 // DELETE USER
@@ -290,9 +323,9 @@ const deleteUser = (u) => {
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
             <div>
                 <h2 class="page-title mb-1">Users & Access Control</h2>
-                <p class="text-muted small mb-0">
+                <!-- <p class="text-muted small mb-0">
                     Manage system accounts, assign primary roles, and configure individual permissions.
-                </p>
+                </p> -->
             </div>
             <div>
                 <button
@@ -647,7 +680,7 @@ const deleteUser = (u) => {
                     </div>
 
                     <!-- Modal Body / Form -->
-                    <form @submit.prevent="submitEdit">
+                    <form class="modal-form-custom" @submit.prevent="submitEdit">
                         <div class="modal-body-custom">
                             <!-- Section 1: Account Information -->
                             <div class="section-heading mb-3">
@@ -892,7 +925,11 @@ const deleteUser = (u) => {
                     </div>
 
                     <!-- Modal Body / Form -->
-                    <form @submit.prevent="submitCreate">
+                    <form class="modal-form-custom" autocomplete="off" @submit.prevent="submitCreate">
+                        <!-- Hidden inputs to absorb aggressive browser autofill -->
+                        <input type="text" style="position: absolute; opacity: 0; pointer-events: none; height: 0; width: 0;" tabindex="-1" autocomplete="off" />
+                        <input type="password" style="position: absolute; opacity: 0; pointer-events: none; height: 0; width: 0;" tabindex="-1" autocomplete="new-password" />
+
                         <div class="modal-body-custom">
                             <!-- Section 1: Account Information -->
                             <div class="section-heading mb-3">
@@ -906,7 +943,7 @@ const deleteUser = (u) => {
                                         type="text"
                                         class="form-control"
                                         :class="{ 'is-invalid': createForm.errors.name }"
-                                        placeholder="e.g. John Doe"
+                                        autocomplete="off"
                                         required
                                         autofocus
                                     >
@@ -919,9 +956,10 @@ const deleteUser = (u) => {
                                     <input
                                         v-model="createForm.email"
                                         type="email"
+                                        name="new_user_email"
                                         class="form-control"
                                         :class="{ 'is-invalid': createForm.errors.email }"
-                                        placeholder="john@library.com"
+                                        autocomplete="off"
                                         required
                                     >
                                     <div v-if="createForm.errors.email" class="invalid-feedback">
@@ -933,9 +971,10 @@ const deleteUser = (u) => {
                                     <input
                                         v-model="createForm.password"
                                         type="password"
+                                        name="new_user_password"
                                         class="form-control"
                                         :class="{ 'is-invalid': createForm.errors.password }"
-                                        placeholder="Minimum 8 characters"
+                                        autocomplete="new-password"
                                         required
                                     >
                                     <div v-if="createForm.errors.password" class="invalid-feedback">
@@ -946,7 +985,7 @@ const deleteUser = (u) => {
 
                             <!-- Section 2: Role Selection -->
                             <div class="section-heading mb-3">
-                                <span>2. Primary Role</span>
+                                <span>2. Primary Role <span class="text-danger">*</span></span>
                             </div>
                             <div class="row g-3 mb-4">
                                 <div
@@ -961,7 +1000,7 @@ const deleteUser = (u) => {
                                     >
                                         <div class="d-flex align-items-center justify-content-between mb-1">
                                             <span class="role-select-title" :class="`role-text-${r.toLowerCase()}`">
-                                                {{ r }}
+                                                 {{ r }}
                                             </span>
                                             <input
                                                 :id="`create-role-${r}`"
@@ -978,6 +1017,9 @@ const deleteUser = (u) => {
                                             <span v-else>Standard borrower: view books and active loans.</span>
                                         </p>
                                     </div>
+                                </div>
+                                <div v-if="createForm.errors.role" class="col-12 text-danger small mt-1">
+                                    {{ createForm.errors.role }}
                                 </div>
                             </div>
 
@@ -1346,13 +1388,16 @@ const deleteUser = (u) => {
     align-items: center;
     justify-content: center;
     z-index: 1050;
-    padding: 1rem;
+    padding: 1.25rem 1rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 .modal-dialog-custom {
     width: 100%;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
+    margin: auto;
 }
 .modal-lg-custom {
     max-width: 760px;
@@ -1366,12 +1411,20 @@ const deleteUser = (u) => {
     max-height: 90vh;
     overflow: hidden;
 }
+.modal-form-custom {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
 .modal-header-custom {
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid #e2e8f0;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+    flex-shrink: 0;
 }
 .modal-title-custom {
     font-size: 1.15rem;
@@ -1386,6 +1439,22 @@ const deleteUser = (u) => {
 .modal-body-custom {
     padding: 1.5rem;
     overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    overscroll-behavior: contain;
+}
+.modal-body-custom::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-body-custom::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+.modal-body-custom::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.modal-body-custom::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 .modal-footer-custom {
     padding: 1rem 1.5rem;
@@ -1395,6 +1464,7 @@ const deleteUser = (u) => {
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 .section-heading {
