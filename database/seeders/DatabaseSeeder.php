@@ -37,5 +37,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
         $librarian->assignRole('Librarian');
+
+        // 4. Seed Categories and Books
+        $this->call(BookCategorySeeder::class);
     }
 }
